@@ -1,0 +1,10 @@
+.main-container {
+  display: flex;
+}
+
+.content {
+  margin-left: 200px;   /* sidebar width */
+  margin-top: 60px;     /* navbar height */
+  width: calc(100vw - 200px);
+  padding: 20px;
+}

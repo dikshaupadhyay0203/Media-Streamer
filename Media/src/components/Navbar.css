@@ -1,0 +1,12 @@
+.navbar {
+  height: 60px;
+  background-color: #202020;
+  color: white;
+  display: flex;
+  align-items: center;
+  padding-left: 20px;
+  position: fixed;
+  width: 100%;
+  top: 0;
+  z-index: 1;
+}
