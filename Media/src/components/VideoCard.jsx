@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom'
 export default function VideoCard({ video }) {
 
   const { id, snippet, contentDetails, statistics } = video;
-  const videoId = id.videoId || id;
+  const videoId = typeof id === "string" ? id : id.videoId;
+
   const { title, thumbnails, channelTitle, publishedAt } = snippet;
 
   // 🔹 Convert ISO duration (PT5M33S → 5:33)

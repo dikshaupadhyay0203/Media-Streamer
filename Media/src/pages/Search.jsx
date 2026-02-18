@@ -1,45 +1,61 @@
-// import { useEffect, useState } from "react";
-// import { useParams, useNavigate } from "react-router-dom";
-// import "./Home.css";
+import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
+import VideoCard from "../components/VideoCard";
 
-// function Search() {
+export default function Search() {
 
-//   const { query } = useParams();
-//   const [videos, setVideos] = useState([]);
+  const [videos, setVideos] = useState([]);
+  const location = useLocation();
 
-//   const API_KEY = import.meta.env.VITE_RAPID_API_KEY;
-//   const navigate = useNavigate();
+  const query = new URLSearchParams(location.search).get("q");
 
-//   useEffect(() => {
-//     fetchSearchVideos();
-//   }, [query]);
+  useEffect(() => {
+    if (!query) return;
+    fetchSearchVideos();
+  }, [query]);
 
-//   async function fetchSearchVideos() {
+  async function fetchSearchVideos() {
 
-//     const response = await fetch(
-//       `https://youtube.googleapis.com/youtube/v3/search?part=snippet&maxResults=20&q=${query}&type=video&key=${API_KEY}`
-//     );
+    try {
+      const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
 
-//     const data = await response.json();
-//     setVideos(data.items);
-//   }
+      console.log("Searching for:", query);   // 🔥 DEBUG
 
-//   return (
-//     <div className="home">
+      const searchRes = await fetch(
+        `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=12&q=${query}&type=video&key=${API_KEY}`
+      );
 
-//       {videos.map((video) => (
-//         <div
-//           className="video-card"
-//           key={video.id.videoId}
-//           onClick={() => navigate(`/watch/${video.id.videoId}`)}
-//         >
-//           <img src={video.snippet.thumbnails.medium.url} />
-//           <p>{video.snippet.title}</p>
-//         </div>
-//       ))}
+      const searchData = await searchRes.json();
 
-//     </div>
-//   );
-// }
+      const videoIds = searchData.items
+        .map(item => item.id.videoId)
+        .join(",");
 
-// export default Search;
+      const videoRes = await fetch(
+        `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${videoIds}&key=${API_KEY}`
+      );
+
+      const videoData = await videoRes.json();
+      setVideos(videoData.items || []);
+
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  return (
+    <div className="p-6 text-black dark:text-white">
+
+      <h2 className="text-xl font-semibold mb-4">
+        Search Results for "{query}"
+      </h2>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+        {videos.map(video => (
+          <VideoCard key={video.id} video={video} />
+        ))}
+      </div>
+
+    </div>
+  );
+}
