@@ -163,66 +163,99 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [activeCategory, setActiveCategory] = useState('All');
 
+  const [page, setPage] = useState(1);
+  const [tokens, setTokens] = useState([""]);
+  const [hasNext, setHasNext] = useState(true);
+
   const categories = ['All', 'Music', 'Gaming', 'News', 'Live', 'Sports', 'Learning'];
 
-  useEffect(() => {
+  // 🔥 FETCH FUNCTION
+  async function fetchVideos(pageNo = 1) {
 
-    async function fetchVideos() {
-      setLoading(true);
-      setError(null);
-      
-      try {
-        const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-        const searchQuery = activeCategory === 'All' ? 'trending' : activeCategory;
+    setLoading(true);
+    setError(null);
 
-        // 🔹 FIRST CALL → SEARCH API (GET VIDEO IDS)
-        const searchRes = await fetch(
-          `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=24&q=${searchQuery}&type=video&key=${API_KEY}`
-        );
+    try {
+      const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
+      const searchQuery = activeCategory === 'All' ? 'trending' : activeCategory;
 
-        const searchData = await searchRes.json();
+      const pageToken = tokens[pageNo - 1] || "";
 
-        const videoIds = searchData.items
-          .map(item => item.id.videoId)
-          .join(",");
+      const searchRes = await fetch(
+        `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=12&q=${searchQuery}&type=video&key=${API_KEY}&pageToken=${pageToken}`
+      );
 
-        // 🔹 SECOND CALL → VIDEOS API (GET DURATION + VIEWS)
-        const videoRes = await fetch(
-          `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${videoIds}&key=${API_KEY}`
-        );
+      const searchData = await searchRes.json();
 
-        if (!videoRes.ok) {
-          throw new Error("Failed to fetch video details");
-        }
+      const nextToken = searchData.nextPageToken;
+      setHasNext(!!nextToken);
 
-        const videoData = await videoRes.json();
-        setVideos(videoData.items || []);
-
-      } catch (err) {
-        setError(err.message);
-        console.error("Error fetching videos:", err);
-      } finally {
-        setLoading(false);
+      if (nextToken && !tokens.includes(nextToken)) {
+        setTokens(prev => [...prev, nextToken]);
       }
+
+      const videoIds = searchData.items
+        .map(item => item.id.videoId)
+        .join(",");
+
+      const videoRes = await fetch(
+        `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${videoIds}&key=${API_KEY}`
+      );
+
+      const videoData = await videoRes.json();
+      setVideos(videoData.items || []);
+
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
+  }
 
-    fetchVideos();
-
+  // 🔥 RESET ON CATEGORY CHANGE
+  useEffect(() => {
+    setTokens([""]);
+    setPage(1);
+    fetchVideos(1);
   }, [activeCategory]);
+
+  // 🔥 PAGE CLICK
+  const handlePageChange = (pageNo) => {
+    setPage(pageNo);
+    fetchVideos(pageNo);
+  };
+
+  // 🔥 PREV
+  const handlePrev = () => {
+    if (page > 1) {
+      const newPage = page - 1;
+      setPage(newPage);
+      fetchVideos(newPage);
+    }
+  };
+
+  // 🔥 NEXT
+  const handleNext = () => {
+    if (hasNext) {
+      const newPage = page + 1;
+      setPage(newPage);
+      fetchVideos(newPage);
+    }
+  };
 
   return (
     <div className="text-black dark:text-white">
 
-      {/* Category Filters */}
+      {/* Categories */}
       <div className="mb-6 flex gap-3 overflow-x-auto pb-2">
         {categories.map((category) => (
           <button
             key={category}
             onClick={() => setActiveCategory(category)}
-            className={`px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-colors ${
+            className={`px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap ${
               activeCategory === category
                 ? 'bg-gray-900 dark:bg-white text-white dark:text-black'
-                : 'bg-gray-200 dark:bg-gray-800 text-black dark:text-white hover:bg-gray-300 dark:hover:bg-gray-700'
+                : 'bg-gray-200 dark:bg-gray-800 text-black dark:text-white'
             }`}
           >
             {category}
@@ -230,46 +263,53 @@ export default function Home() {
         ))}
       </div>
 
-      {/* Loading State */}
+      {/* Loading */}
       {loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-          {Array.from({ length: 24 }).map((_, index) => (
+          {Array.from({ length: 12 }).map((_, index) => (
             <ShimmerCard key={index} />
           ))}
         </div>
       )}
 
-      {/* Error State */}
-      {error && (
-        <div className="text-center py-20">
-          <p className="text-red-500 mb-2">Error loading videos</p>
-          <p className="text-gray-600 dark:text-gray-400 text-sm">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {/* Videos Grid */}
+      {/* Videos */}
       {!loading && !error && videos.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-          {videos.map((video) => (
-            <VideoCard key={video.id} video={video} />
-          ))}
-        </div>
-      )}
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+            {videos.map((video) => (
+              <VideoCard key={video.id} video={video} />
+            ))}
+          </div>
 
-      {/* No Videos State */}
-      {!loading && !error && videos.length === 0 && (
-        <div className="text-center py-20">
-          <h2 className="text-2xl font-semibold mb-2">No videos found</h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            Try selecting a different category
-          </p>
-        </div>
+{/* PAGINATION */}
+<div className="flex justify-center items-center gap-4 mt-8">
+
+  {/* PREV */}
+  <button
+    onClick={handlePrev}
+    disabled={page === 1}
+    className="px-4 py-2 bg-gray-300 rounded disabled:opacity-50"
+  >
+    Prev
+  </button>
+
+  {/* CURRENT PAGE */}
+  <span className="px-4 py-2 bg-blue-500 text-white rounded">
+    {page}
+  </span>
+
+  {/* NEXT */}
+  <button
+    onClick={handleNext}
+    disabled={!hasNext}
+    className="px-4 py-2 bg-gray-300 rounded disabled:opacity-50"
+  >
+    Next
+  </button>
+
+</div>
+
+        </>
       )}
 
     </div>
